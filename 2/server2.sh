@@ -29,7 +29,7 @@ echo -e "${YELLOW}Lub w przeglądarce otwórz:${NC} http://localhost:5000"
 echo
 
 # Uruchomienie serwera
-python server.py
+python server2.py
  Sprawdzenie wymaganych pakietów Python
 required_packages=("flask" "requests")
 missing_packages=()
@@ -83,7 +83,7 @@ fi
 # Utworzenie plików serwera i klienta jeśli nie istnieją
 if [ ! -f "server.py" ]; then
     echo -e "${BLUE}Tworzenie pliku serwera...${NC}"
-    cat > server.py << 'EOL'
+    cat > server2.py << 'EOL'
 #!/usr/bin/env python3
 """
 Super prosty serwer HTTP udostępniający TinyLLM przez Ollama.
@@ -245,7 +245,7 @@ if __name__ == "__main__":
     # Uruchomienie serwera na wszystkich interfejsach
     app.run(host='0.0.0.0', port=PORT, debug=False)
 EOL
-    chmod +x server.py
+    chmod +x server2.py
 fi
 
 if [ ! -f "client2.py" ]; then

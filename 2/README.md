@@ -140,6 +140,86 @@ pip install mcp requests
    - Zalety: Proste, minimalne zależności, łatwe do zrozumienia i modyfikacji
    - Wady: Mniej funkcji, podstawowa implementacja
 
-## Konkluzja
 
-Ten minimalny przykład pokazuje, że integracja MCP z modelami językowymi może być prosta i bezproblemowa, eliminując niepotrzebne warstwy złożoności.
+
+
+
+# Proste rozwiązanie dla TinyLLM - bez MCP
+
+
+1. **server2.py** - prosty serwer HTTP z endpointami do komunikacji z TinyLLM
+2. **client2.py** - klient do komunikacji z serwerem
+3. **start_super_simple.sh** - skrypt uruchamiający całe rozwiązanie
+
+## Jak to uruchomić?
+
+1. Zapisz wszystkie trzy pliki w tym samym katalogu
+2. Nadaj uprawnienia do wykonania skryptom:
+   ```bash
+   chmod +x start_super_simple.sh server2.py client.py ask_tinyllm_simple.sh
+   ```
+3. Uruchom skrypt startowy:
+   ```bash
+   ./server2.sh
+   ```
+
+## Jak korzystać z rozwiązania?
+
+Po uruchomieniu serwera, możesz zadawać pytania do TinyLLM na kilka sposobów:
+
+### 1. Użyj skryptu klienta
+
+W nowym terminalu:
+```bash
+./ask.sh "Co to jest Python?"
+```
+
+### 2. Użyj curl
+
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{"prompt":"Co to jest Python?"}' http://localhost:5000/ask
+```
+
+### 3. Przeglądarka internetowa
+
+Otwórz `http://localhost:5000` w przeglądarce, aby zobaczyć interfejs z instrukcjami.
+
+## Zalety tego rozwiązania
+
+1. **Minimalne zależności** - potrzebujesz tylko Flask i requests, bez MCP
+2. **Proste API** - endpointy `/ask` i `/echo` z komunikacją JSON
+3. **Niezawodność** - eliminuje problemy z kompatybilnością MCP
+4. **Lepsze debugowanie** - jasne komunikaty błędów
+5. **Interfejs web** - dostępny pod adresem http://localhost:5000
+6. **Obsługa błędów** - sprawdzanie dostępności Ollama i modelu
+
+## Diagnostyka problemów
+
+Jeśli nadal napotykasz problemy:
+
+1. **Czy Ollama jest uruchomiona?** Sprawdź czy serwer Ollama działa, uruchamiając:
+   ```bash
+   curl http://localhost:11434/api/tags
+   ```
+
+2. **Czy model TinyLLM jest dostępny?** Sprawdź listę modeli:
+   ```bash
+   ollama list
+   ```
+
+3. **Test połączenia z serwerem**:
+   ```bash
+   ./client.py --test
+   ```
+
+## Porównanie z MCP
+
+| Aspekt | MCP | Super proste rozwiązanie |
+|--------|-----|-------------------------|
+| Zależności | Wymaga MCP SDK, wiele warstw | Tylko Flask i requests |
+| Stabilność | Problemy z kompatybilnością | Proste, stabilne API |
+| Debugowanie | Skomplikowane błędy | Czytelne komunikaty |
+| Interfejs | Brak | Prosty interfejs web |
+| Konfiguracja | Złożona | Minimalna |
+
+To rozwiązanie może służyć jako prosty punkt startowy, który możesz później rozbudować o bardziej zaawansowane funkcje, gdy podstawowa integracja będzie już działać.
