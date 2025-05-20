@@ -71,17 +71,51 @@ class MCPServer:
         self._setup_routes()
     
     def _setup_routes(self):
-        @self.app.post("/mcp/{resource_type}")
+        @self.app.api_route("/mcp/{resource_path:path}", methods=["POST", "GET", "PUT", "DELETE"])
         async def handle_request(
-            resource_type: str,
-            request: MCPRequest,
+            request: Request,
+            resource_path: str,
             registry: ResourceRegistry = Depends(lambda: ResourceRegistry())
         ) -> MCPResponse:
-            handler = registry.get_handler(resource_type)
-            if not handler:
-                raise HTTPException(status_code=404, detail=f"Resource '{resource_type}' not found")
-            
-            return await handler(**request.params)
+            try:
+                # Parse request body for POST/PUT
+                if request.method in ["POST", "PUT"]:
+                    body = await request.json()
+                    params = body.get("params", {}) if isinstance(body, dict) else {}
+                    action = body.get("action", "") if isinstance(body, dict) else ""
+                else:
+                    params = dict(request.query_params)
+                    action = params.pop("action", "")
+                
+                # Get handler for the resource
+                handler = registry.get_handler(resource_path)
+                if not handler:
+                    raise HTTPException(status_code=404, detail=f"Resource '{resource_path}' not found")
+                
+                # If no action specified, try to infer from HTTP method
+                if not action and request.method != "POST":
+                    action = request.method.lower()
+                
+                # Call the handler with params
+                if action:
+                    params["action"] = action
+                
+                result = await handler(**params)
+                
+                # If result is already an MCPResponse, return it directly
+                if isinstance(result, MCPResponse):
+                    return result
+                    
+                # Otherwise wrap in MCPResponse
+                return MCPResponse(success=True, data=result)
+                
+            except HTTPException as he:
+                raise he
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=400, detail="Invalid JSON in request body")
+            except Exception as e:
+                logger.error(f"Error processing request: {str(e)}", exc_info=True)
+                raise HTTPException(status_code=500, detail=str(e))
         
         @self.app.get("/health")
         async def health_check() -> Dict[str, str]:
