@@ -1,61 +1,79 @@
 #!/bin/bash
 
-# Skrypt do instalacji serwera MCP w Claude Desktop z integracją Ollama Tiny model
-# Ten skrypt tworzy i instaluje serwer w Claude Desktop
+# Skrypt do instalacji serwera MCP w Claude Desktop skonfigurowanego
+# do testowania z modelem Ollama Tiny Model
+set -e  # Zatrzymanie skryptu przy błędzie
+
+echo "==== Instalacja serwera MCP z konfiguracją dla Ollama Tiny Model ===="
+
+# Sprawdzenie czy środowisko wirtualne istnieje
+if [ ! -d "mcp_env" ]; then
+    echo "Błąd: Nie znaleziono środowiska wirtualnego mcp_env."
+    echo "Uruchom najpierw ./install.sh aby skonfigurować projekt."
+    exit 1
+fi
 
 # Aktywacja środowiska wirtualnego
 source mcp_env/bin/activate
 
-# Sprawdzenie czy httpx jest zainstalowany (wymagany dla Ollama)
-if ! pip show httpx &>/dev/null; then
-  echo "Instalacja wymaganych zależności (httpx)..."
-  pip install httpx
+# Sprawdzenie czy Ollama jest zainstalowana
+if ! command -v ollama &> /dev/null; then
+    echo "Ostrzeżenie: Nie znaleziono Ollama w systemie."
+    echo "Aby używać tego skryptu, musisz mieć zainstalowaną Ollama ze strony: https://ollama.com/download"
+
+    read -p "Czy chcesz kontynuować mimo to? (t/n): " continue_choice
+    if [[ "$continue_choice" != "t" ]]; then
+        echo "Instalacja przerwana."
+        exit 1
+    fi
 fi
 
-# Tworzenie katalogu jeśli nie istnieje
-mkdir -p mcp_server
-
-# Tworzenie konfiguracji dla Ollamy
-echo "Tworzenie konfiguracji dla modelu Ollama Tiny..."
+# Tworzenie pliku konfiguracji dla integracji z Ollama
+echo "Tworzenie konfiguracji Ollama..."
 cat > mcp_server/ollama_config.py << 'EOL'
-# Konfiguracja Ollama Tiny model
+# Konfiguracja modelu Ollama
 
+# Podstawowa konfiguracja
 OLLAMA_CONFIG = {
-    "base_url": "http://localhost:11434",
-    "model": "tinyllama",  # Możesz zmienić na inny dostępny model Ollama
-    "timeout": 30
+    "base_url": "http://localhost:11434",  # Domyślny port Ollama
+    "model": "tinyllama:latest",           # Model Tiny LLama (można zmienić na dowolny dostępny model)
+    "timeout": 60,                         # Timeout w sekundach
 }
 
-# Parametry generowania tekstu
+# Parametry generacji
 GENERATION_PARAMS = {
     "temperature": 0.7,
     "top_p": 0.9,
-    "max_tokens": 1000
+    "top_k": 40,
+    "max_tokens": 2048,
+    "presence_penalty": 1.0,
+    "frequency_penalty": 1.0,
 }
 EOL
 
-# Tworzenie pliku integracji z Ollama
-echo "Tworzenie modułu integracji z Ollama..."
-cat > mcp_server/ollama_integration.py << 'EOL'
-import httpx
+# Tworzenie narzędzia MCP do korzystania z Ollama
+echo "Tworzenie narzędzia MCP dla Ollama..."
+cat > mcp_server/ollama_tool.py << 'EOL'
 import json
-import asyncio
+import httpx
 from mcp.server.fastmcp import Context
 from ollama_config import OLLAMA_CONFIG, GENERATION_PARAMS
 
-async def query_ollama(prompt: str, ctx: Context = None) -> str:
+async def generate_ollama_response(prompt: str, ctx: Context = None) -> str:
     """
-    Wysyła zapytanie do modelu Ollama i zwraca odpowiedź.
+    Funkcja do generowania odpowiedzi z modelu Ollama Tiny.
 
     Args:
-        prompt: Tekst zapytania
-        ctx: Opcjonalny kontekst MCP do logowania
+        prompt: Tekst zapytania do modelu
+        ctx: Kontekst MCP (opcjonalny)
 
     Returns:
-        str: Odpowiedź od modelu Ollama
+        Odpowiedź z modelu Ollama
     """
     if ctx:
-        await ctx.info(f"Wysyłanie zapytania do modelu Ollama ({OLLAMA_CONFIG['model']})...")
+        await ctx.info(f"Wysyłanie zapytania do modelu Ollama {OLLAMA_CONFIG['model']}...")
+
+    url = f"{OLLAMA_CONFIG['base_url']}/api/generate"
 
     # Przygotowanie danych zapytania
     data = {
@@ -65,94 +83,65 @@ async def query_ollama(prompt: str, ctx: Context = None) -> str:
     }
 
     try:
-        # Wysłanie zapytania do API Ollama
+        # Wykonanie zapytania do API Ollama
         async with httpx.AsyncClient(timeout=OLLAMA_CONFIG["timeout"]) as client:
             response = await client.post(
-                f"{OLLAMA_CONFIG['base_url']}/api/generate",
-                json=data
+                url,
+                json=data,
+                headers={"Content-Type": "application/json"}
             )
 
+            # Sprawdzenie odpowiedzi
             if response.status_code != 200:
-                error_msg = f"Błąd odpowiedzi Ollama: {response.status_code}"
+                error_message = f"Błąd komunikacji z Ollama: {response.status_code}"
                 if ctx:
-                    await ctx.error(error_msg)
-                return error_msg
+                    await ctx.error(error_message)
+                return error_message
 
-            # Parsowanie odpowiedzi JSON
+            # Przetwarzanie odpowiedzi
             try:
                 result = response.json()
-                return result.get("response", "Brak odpowiedzi od modelu")
+                return result.get("response", "Brak odpowiedzi od modelu.")
             except json.JSONDecodeError:
-                error_msg = "Błąd parsowania odpowiedzi JSON z Ollama"
+                error_message = "Błąd przetwarzania odpowiedzi z Ollama (nieprawidłowy JSON)"
                 if ctx:
-                    await ctx.error(error_msg)
-                return error_msg
+                    await ctx.error(error_message)
+                return error_message
 
-    except httpx.RequestError as e:
-        error_msg = f"Błąd połączenia z Ollama: {str(e)}"
+    except httpx.HTTPError as e:
+        error_message = f"Błąd HTTP podczas komunikacji z Ollama: {str(e)}"
         if ctx:
-            await ctx.error(error_msg)
-        return error_msg
+            await ctx.error(error_message)
+        return error_message
     except Exception as e:
-        error_msg = f"Nieoczekiwany błąd: {str(e)}"
+        error_message = f"Nieoczekiwany błąd podczas komunikacji z Ollama: {str(e)}"
         if ctx:
-            await ctx.error(error_msg)
-        return error_msg
+            await ctx.error(error_message)
+        return error_message
 EOL
 
-# Tworzenie serwera MCP z integracją Ollama
-echo "Tworzenie serwera MCP z integracją Ollama..."
-cat > mcp_server/server.py << 'EOL'
+# Aktualizacja głównego pliku serwera MCP o narzędzie Ollama
+echo "Aktualizacja serwera MCP o narzędzie Ollama..."
+cat > mcp_server/server_ollama.py << 'EOL'
 import os
-import sqlite3
 import aiosqlite
 import aiofiles
 from mcp.server.fastmcp import FastMCP, Context
-from ollama_integration import query_ollama
+from ollama_tool import generate_ollama_response
 
 # Tworzenie serwera MCP
-mcp = FastMCP("MCP Serwer z SQLite, System Plików i Ollama Tiny")
+mcp = FastMCP("MCP Server z SQLite, systemem plików i Ollama")
 
 # Konfiguracja ścieżek
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 DB_PATH = os.path.join(DATA_DIR, "database.db")
-
-# Utworzenie katalogu danych, jeśli nie istnieje
-os.makedirs(DATA_DIR, exist_ok=True)
-
-# Inicjalizacja bazy danych, jeśli nie istnieje
-if not os.path.exists(DB_PATH):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
-
-    sample_users = [
-        (1, "Jan Kowalski", "jan@example.com"),
-        (2, "Anna Nowak", "anna@example.com"),
-        (3, "Piotr Wiśniewski", "piotr@example.com")
-    ]
-
-    cursor.executemany(
-        "INSERT OR REPLACE INTO users (id, name, email) VALUES (?, ?, ?)",
-        sample_users
-    )
-
-    conn.commit()
-    conn.close()
 
 # Narzędzia SQLite
 @mcp.tool()
 async def sqlite_query(query: str, ctx: Context) -> str:
     """Wykonaj zapytanie SQLite (tylko SELECT)."""
     if not query.strip().upper().startswith("SELECT"):
-        return "Błąd: Dozwolone są tylko zapytania SELECT dla bezpieczeństwa."
+        return "Błąd: Dozwolone są tylko zapytania SELECT."
 
     try:
         async with aiosqlite.connect(DB_PATH) as db:
@@ -258,32 +247,67 @@ async def fs_write_file(filepath: str, content: str, ctx: Context) -> str:
 # Narzędzie Ollama
 @mcp.tool()
 async def ollama_ask(prompt: str, ctx: Context) -> str:
-    """Generuj odpowiedź używając modelu Ollama Tiny."""
-    await ctx.info(f"Wysyłanie zapytania do modelu Ollama: {prompt[:50]}...")
-    response = await query_ollama(prompt, ctx)
-    return response
+    """Zadaj pytanie do modelu Ollama Tiny."""
+    await ctx.info(f"Przetwarzanie zapytania: {prompt}")
+    return await generate_ollama_response(prompt, ctx)
 
 # Uruchomienie serwera MCP
 if __name__ == "__main__":
-    print(f"Uruchamianie serwera MCP...")
+    print(f"Uruchamianie serwera MCP z obsługą Ollama...")
     print(f"- Baza danych: {DB_PATH}")
     print(f"- Katalog danych: {DATA_DIR}")
-    print(f"- Ollama Tiny model gotowy do użycia")
     mcp.run()
 EOL
 
-# Instalacja dodatkowych zależności
-pip install aiosqlite aiofiles httpx
+# Instalacja dodatkowych zależności dla Ollama
+echo "Instalacja dodatkowych zależności..."
+pip install httpx
 
-# Instalacja serwera w Claude Desktop
-echo "Instalowanie serwera MCP w Claude Desktop..."
-mcp install mcp_server/server.py --name "MCP z Ollama Tiny (Testowy)"
+# Tworzenie skryptu instalacyjnego dla Claude Desktop z serwera Ollama
+cat > install_in_claude_ollama.sh << 'EOL'
+#!/bin/bash
 
+source mcp_env/bin/activate
+echo "Instalowanie serwera MCP z obsługą Ollama w Claude Desktop..."
+mcp install mcp_server/server_ollama.py --name "MCP Server z Ollama Tiny"
+EOL
+
+chmod +x install_in_claude_ollama.sh
+
+# Tworzenie skryptu testowego dla serwera z Ollama
+cat > test_ollama.sh << 'EOL'
+#!/bin/bash
+
+source mcp_env/bin/activate
+echo "Uruchamianie inspektora MCP dla serwera z Ollama..."
+mcp dev mcp_server/server_ollama.py
+EOL
+
+chmod +x test_ollama.sh
+
+# Tworzenie skryptu uruchamiającego serwer Ollama
+cat > run_ollama.sh << 'EOL'
+#!/bin/bash
+
+source mcp_env/bin/activate
+echo "Uruchamianie serwera MCP z Ollama..."
+python mcp_server/server_ollama.py
+EOL
+
+chmod +x run_ollama.sh
+
+# Zakończenie
+echo ""
 echo "==== Instalacja zakończona ===="
 echo ""
-echo "Serwer MCP z integracją Ollama Tiny został zainstalowany w Claude Desktop."
+echo "Aby uruchomić serwer MCP z Ollama Tiny Model, wykonaj:"
+echo "./run_ollama.sh"
 echo ""
-echo "UWAGA: Aby korzystać z modelu Ollama Tiny, upewnij się że:"
-echo "1. Ollama jest zainstalowana i uruchomiona (https://ollama.com/download)"
-echo "2. Model tinyllama jest pobrany (komenda: ollama pull tinyllama)"
-echo "3. Serwer Ollama działa na porcie 11434 (domyślny port)"
+echo "Aby przetestować serwer MCP z Ollama w inspektorze, wykonaj:"
+echo "./test_ollama.sh"
+echo ""
+echo "Aby zainstalować serwer z Ollama w Claude Desktop, wykonaj:"
+echo "./install_in_claude_ollama.sh"
+echo ""
+echo "UWAGA: Upewnij się, że serwer Ollama jest uruchomiony na porcie 11434"
+echo "i model tinyllama jest załadowany (jeśli nie, użyj komendy: ollama pull tinyllama)"

@@ -114,7 +114,7 @@ Serwer MCP udostępnia następujące komponenty:
 2. Zainstaluj wymagane pakiety:
    ```bash
    pip install --upgrade pip
-   pip install "mcp[cli]" sqlite3 aiosqlite aiosmtplib aiofiles
+   pip install "mcp[cli]" aiosqlite aiosmtplib aiofiles
    ```
 
 3. Utwórz strukturę katalogów:
