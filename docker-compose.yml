@@ -10,6 +10,7 @@ services:
       - "8004:8004"  # Docker API
       - "8005:8005"  # Email API
       - "8006:8006"  # Filesystem API
+      - "8007:8007"  # Puppeteer API
     volumes:
       - ./data:/data
       - /var/run/docker.sock:/var/run/docker.sock

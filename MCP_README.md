@@ -90,4 +90,4 @@ curl -X POST http://localhost:8001/mcp/email.send \
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the Apache  License - see the LICENSE file for details.
