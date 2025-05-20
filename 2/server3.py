@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Poprawka do serwera TinyLLM - dodaje lepszą obsługę błędów w przetwarzaniu JSON.
-Zapisz ten plik, a następnie zastąp nim istniejący super_simple_server.py.
+Naprawiony serwer dla TinyLLM via Ollama.
+Obsługuje problemy z parsowaniem JSON z Ollama.
 """
 
 import os
@@ -13,23 +13,30 @@ from flask import Flask, request, jsonify
 
 # Konfiguracja
 OLLAMA_URL = "http://localhost:11434"
-MODEL_NAME = "tinyllama"  # Nazwę modelu można zmienić
+MODEL_NAME = "tinyllama:latest"  # Użycie pełnej nazwy z tagiem
 PORT = 5001
 
 app = Flask(__name__)
+
 
 def check_ollama_available():
     """Sprawdza, czy Ollama jest dostępna i model załadowany."""
     try:
         # Sprawdzenie, czy serwer Ollama działa
-        response = requests.get(f"{OLLAMA_URL}/api/tags", timeout=2)
+        response = requests.get(f"{OLLAMA_URL}/api/tags", timeout=5)
         if response.status_code != 200:
             print(f"⚠️ Błąd: Serwer Ollama nie odpowiada poprawnie. Kod: {response.status_code}")
             return False
 
         # Sprawdzenie, czy wymagany model jest dostępny
         models = response.json().get("models", [])
-        if not any(model["name"] == MODEL_NAME for model in models):
+        model_exists = False
+        for model in models:
+            if model["name"] == MODEL_NAME or model["name"].startswith(MODEL_NAME.split(':')[0]):
+                model_exists = True
+                break
+
+        if not model_exists:
             print(f"⚠️ Model {MODEL_NAME} nie jest dostępny. Dostępne modele:")
             for model in models:
                 print(f" - {model['name']}")
@@ -45,6 +52,7 @@ def check_ollama_available():
     except Exception as e:
         print(f"⚠️ Błąd: {str(e)}")
         return False
+
 
 @app.route('/', methods=['GET'])
 def home():
@@ -83,17 +91,98 @@ curl -X POST -H "Content-Type: application/json" \\
         </pre>
 
         <h2>Status serwera Ollama</h2>
-        <p>Model: <strong>tinyllama</strong></p>
+        <p>Model: <strong>tinyllama:latest</strong></p>
         <p>URL Ollama: <strong>http://localhost:11434</strong></p>
 
         <h2>Łatwiejsze zapytania</h2>
         <p>Możesz użyć skryptu pomocniczego do zapytań:</p>
         <pre>
-./simple_ask.sh "Twoje pytanie"
+./ask.sh "Twoje pytanie"
         </pre>
     </body>
     </html>
     """
+
+
+def call_ollama_api(prompt, temperature=0.7, max_tokens=1000):
+    """
+    Bezpieczne wywołanie API Ollama z obsługą błędów.
+
+    Args:
+        prompt: Zapytanie do modelu
+        temperature: Temperatura generowania
+        max_tokens: Maksymalna liczba tokenów w odpowiedzi
+
+    Returns:
+        str: Odpowiedź od modelu lub komunikat o błędzie
+    """
+    try:
+        # Użycie stream=False, aby uniknąć problemów z parsowaniem JSON
+        payload = {
+            "model": MODEL_NAME,
+            "prompt": prompt,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False
+        }
+
+        print(f"📤 Wysyłanie zapytania do Ollama: {json.dumps(payload)[:200]}...")
+
+        response = requests.post(
+            f"{OLLAMA_URL}/api/generate",
+            json=payload,
+            timeout=60
+        )
+
+        # Sprawdzenie statusu odpowiedzi
+        if response.status_code != 200:
+            error_msg = f"Błąd Ollama: Kod {response.status_code}"
+            print(f"⚠️ {error_msg}")
+            return None, error_msg
+
+        # Próba parsowania odpowiedzi jako JSON
+        try:
+            # Tylko pierwszy wiersz treści odpowiedzi
+            first_line = response.text.strip().split('\n')[0]
+            result = json.loads(first_line)
+            ollama_response = result.get("response", "")
+            print(f"📥 Odpowiedź Ollama (długość: {len(ollama_response)} znaków)")
+            return ollama_response, None
+        except json.JSONDecodeError as e:
+            # Jeśli parsowanie nie powiodło się, wyświetl surowe dane
+            print(f"⚠️ Błąd parsowania JSON: {str(e)}")
+            print(f"Surowa odpowiedź: {response.text[:200]}...")
+
+            # Spróbuj wyciągnąć tekst odpowiedzi bez polegania na JSON
+            try:
+                # Ręczne parsowanie dla strumieniowej odpowiedzi
+                text_content = ""
+                for line in response.text.strip().split('\n'):
+                    try:
+                        chunk = json.loads(line)
+                        if "response" in chunk:
+                            text_content += chunk["response"]
+                    except:
+                        pass
+
+                if text_content:
+                    print(f"📥 Odpowiedź wyodrębniona ręcznie (długość: {len(text_content)} znaków)")
+                    return text_content, None
+            except Exception as parsing_ex:
+                print(f"⚠️ Nie można wyodrębnić odpowiedzi: {str(parsing_ex)}")
+
+            # Jeśli wszystko zawiedzie, zwróć błąd
+            return None, f"Błąd parsowania odpowiedzi Ollama: {str(e)}"
+    except requests.exceptions.Timeout:
+        error_msg = "Timeout podczas oczekiwania na odpowiedź z Ollama"
+        print(f"⚠️ {error_msg}")
+        return None, error_msg
+    except Exception as e:
+        error_msg = f"Nieoczekiwany błąd: {str(e)}"
+        print(f"⚠️ {error_msg}")
+        traceback.print_exc()
+        return None, error_msg
+
 
 @app.route('/ask', methods=['POST'])
 def ask_tinyllm():
@@ -131,35 +220,19 @@ def ask_tinyllm():
         return jsonify({"error": error_msg}), 400
 
     prompt = data['prompt']
+    temperature = data.get('temperature', 0.7)
+    max_tokens = data.get('max_tokens', 1000)
 
     print(f"📤 Zapytanie: {prompt[:50]}...")
 
-    try:
-        # Wywołanie API Ollama z minimalną konfiguracją
-        response = requests.post(
-            f"{OLLAMA_URL}/api/generate",
-            json={
-                "model": MODEL_NAME,
-                "prompt": prompt,
-                "temperature": data.get('temperature', 0.7),
-                "max_tokens": data.get('max_tokens', 1000)
-            },
-            timeout=60
-        )
+    # Wywołanie API Ollama
+    response, error = call_ollama_api(prompt, temperature, max_tokens)
 
-        if response.status_code == 200:
-            result = response.json()
-            print(f"📥 Odpowiedź otrzymana")
-            return jsonify({"response": result.get("response", "Brak odpowiedzi od modelu.")})
-        else:
-            error_msg = f"Błąd Ollama: {response.status_code}"
-            print(f"⚠️ {error_msg}")
-            return jsonify({"error": error_msg}), 500
-    except Exception as e:
-        error_msg = f"Błąd: {str(e)}"
-        print(f"⚠️ {error_msg}")
-        print(f"Stacktrace: {traceback.format_exc()}")
-        return jsonify({"error": error_msg}), 500
+    if error:
+        return jsonify({"error": error}), 500
+    else:
+        return jsonify({"response": response})
+
 
 @app.route('/echo', methods=['POST'])
 def echo():
@@ -196,8 +269,9 @@ def echo():
 
     return jsonify({"response": f"Otrzymano: {message}"})
 
+
 if __name__ == "__main__":
-    print("🚀 Uruchamianie super prostego serwera TinyLLM (z lepszą obsługą błędów)...")
+    print("🚀 Uruchamianie super prostego serwera TinyLLM (z poprawioną integracją Ollama)...")
 
     # Sprawdzenie dostępności Ollama przed uruchomieniem
     if not check_ollama_available():
@@ -212,8 +286,10 @@ if __name__ == "__main__":
 
     # Przykładowe zapytania:
     print("\n📝 Przykłady użycia (zwróć uwagę na format JSON - musi być w jednej linii):")
-    print(f"curl -X POST -H \"Content-Type: application/json\" -d '{{\"message\":\"Test\"}}' http://localhost:{PORT}/echo")
-    print(f"curl -X POST -H \"Content-Type: application/json\" -d '{{\"prompt\":\"Co to jest Python?\"}}' http://localhost:{PORT}/ask")
+    print(
+        f"curl -X POST -H \"Content-Type: application/json\" -d '{{\"message\":\"Test\"}}' http://localhost:{PORT}/echo")
+    print(
+        f"curl -X POST -H \"Content-Type: application/json\" -d '{{\"prompt\":\"Co to jest Python?\"}}' http://localhost:{PORT}/ask")
 
     # Uruchomienie serwera na wszystkich interfejsach z lepszym logowaniem
     app.run(host='0.0.0.0', port=PORT, debug=True)
