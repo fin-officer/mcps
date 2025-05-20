@@ -71,21 +71,21 @@ start_server() {
 pids=()
 
 # Start the main MCP server
-start_server "Main" PORT $PORT "mcp.main:app"
+start_server "Main" PORT $PORT "main:app"
 
 # Start Docker MCP server if enabled
 if [ "${DOCKER_ENABLED:-true}" = "true" ]; then
-    start_server "Docker" DOCKER_PORT ${DOCKER_PORT:-8001} "mcp.servers.docker:app"
+    start_server "Docker" DOCKER_PORT ${DOCKER_PORT:-8004} "mcp.servers.docker.main:app"
 fi
 
 # Start Email MCP server if enabled
 if [ "${EMAIL_ENABLED:-true}" = "true" ] && [ -n "$SMTP_SERVER" ]; then
-    start_server "Email" EMAIL_PORT ${EMAIL_PORT:-8002} "mcp.servers.email:app"
+    start_server "Email" EMAIL_PORT ${EMAIL_PORT:-8005} "mcp.servers.email.main:app"
 fi
 
 # Start Filesystem MCP server if enabled
 if [ "${FILESYSTEM_ENABLED:-true}" = "true" ]; then
-    start_server "Filesystem" FILESYSTEM_PORT ${FILESYSTEM_PORT:-8003} "mcp.servers.filesystem:app"
+    start_server "Filesystem" FILESYSTEM_PORT ${FILESYSTEM_PORT:-8006} "servers.src.filesystem.index:app"
 fi
 
 # Function to handle shutdown
