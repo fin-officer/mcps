@@ -130,7 +130,7 @@ Serwer MCP udostępnia następujące komponenty:
 
 ```bash
 source mcp_env/bin/activate
-python mcp_server/server.py
+python mcp_server/server.sh
 ```
 
 Lub użyj skryptu:
@@ -142,7 +142,7 @@ Lub użyj skryptu:
 
 ```bash
 source mcp_env/bin/activate
-mcp dev mcp_server/server.py
+mcp dev mcp_server/server.sh
 ```
 
 Lub użyj skryptu:
@@ -154,7 +154,7 @@ Lub użyj skryptu:
 
 ```bash
 source mcp_env/bin/activate
-mcp install mcp_server/server.py
+mcp install mcp_server/server.sh
 ```
 
 Lub użyj skryptu:
@@ -168,13 +168,13 @@ Serwer można uruchomić z dodatkowymi parametrami:
 
 ```bash
 # Uruchomienie z określoną nazwą serwera
-mcp install mcp_server/server.py --name "Mój serwer MCP"
+mcp install mcp_server/server.sh --name "Mój serwer MCP"
 
 # Uruchomienie z dodatkowymi zmiennymi środowiskowymi
-mcp install mcp_server/server.py -v API_KEY=abc123 -v DB_URL=sqlite:///path/to/db
+mcp install mcp_server/server.sh -v API_KEY=abc123 -v DB_URL=sqlite:///path/to/db
 
 # Uruchomienie z plikiem zmiennych środowiskowych
-mcp install mcp_server/server.py -f .env
+mcp install mcp_server/server.sh -f .env
 ```
 
 ## ⚙️ Konfiguracja
