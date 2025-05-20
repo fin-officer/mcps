@@ -51,4 +51,7 @@ if __name__ == "__main__":
     if args.command == "docker":
         run_docker_server(args.host, args.port)
     elif args.command == "email":
-        run_email_server(args.host, args.po
+        run_email_server(args.host, args.port)
+    else:
+        print(f"Unknown command: {args.command}")
+        print("Available commands: docker, email")

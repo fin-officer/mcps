@@ -42,12 +42,12 @@ mcps/
 
 3. **Run a Docker MCP Server**
    ```bash
-   python main.py docker --host 0.0.0.0 --port 8000
+   python main.py docker --host 0.0.0.0 --port 8004
    ```
 
 4. **Run an Email MCP Server**
    ```bash
-   python main.py email --host 0.0.0.0 --port 8001
+   python main.py email --host 0.0.0.0 --port 8005
    ```
 
 ## Example API Usage
@@ -56,14 +56,14 @@ mcps/
 
 **List Containers**
 ```bash
-curl -X POST http://localhost:8000/mcp/docker.containers.list \
+curl -X POST http://localhost:8004/mcp/docker.containers.list \
   -H "Content-Type: application/json" \
   -d '{"all": true}'
 ```
 
 **Run a Container**
 ```bash
-curl -X POST http://localhost:8000/mcp/docker.containers.run \
+curl -X POST http://localhost:8004/mcp/docker.containers.run \
   -H "Content-Type: application/json" \
   -d '{"image": "nginx:alpine", "detach": true}'
 ```

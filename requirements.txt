@@ -1,10 +1,25 @@
-fastapi>=0.68.0
-uvicorn>=0.15.0
-pydantic>=1.8.0
-python-dotenv>=0.19.0
-docker>=5.0.3
-python-multipart>=0.0.5
-loguru>=0.6.0
-python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
-python-multipart>=0.0.5
+# Core dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+httpx>=0.25.0
+
+# Optional dependencies (uncomment as needed)
+# docker>=7.0.0  # For Docker MCP server
+# python-multipart>=0.0.6  # For file uploads
+# loguru>=0.7.2  # For better logging
+# python-jose[cryptography]>=3.3.0  # For JWT authentication
+# passlib[bcrypt]>=1.7.4  # For password hashing
+# aiohttp>=3.9.0  # For async HTTP requests
+# sqlalchemy>=2.0.0  # For database operations
+# asyncpg>=0.28.0  # For async PostgreSQL
+# psycopg2-binary>=2.9.9  # For PostgreSQL
+# aiosqlite>=0.19.0  # For SQLite
+# aiomysql>=0.2.0  # For MySQL
+# pymongo>=4.5.0  # For MongoDB
+# redis>=5.0.0  # For Redis
+# elasticsearch>=8.10.0  # For Elasticsearch
+# boto3>=1.28.0  # For AWS services
+# google-cloud-storage>=2.10.0  # For Google Cloud Storage
+# azure-storage-blob>=12.16.0  # For Azure Blob Storage
