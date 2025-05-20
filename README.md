@@ -231,45 +231,22 @@ Czy chcesz teraz:
 ├── scripts/   # helper tools, trace debug, deployy
 └── mcp/
     ├── core/
-    │   ├── decorators.py       # wspólne dekoratory MCP do logowania/trace
-    │   ├── schema.py           # wspólne MCP request/response modele Pydantic
-    │   ├── router_base.py      # bazowy router do reużycia
-    ├── clients/
-    │   ├── llm-agent/
-    │   └── ...
-    └── servers/
-        ├── docker/
-        │   ├── main.py
-        │   ├── docker_api.py   # logika docker-compose/docker-py
-        │   └── Dockerfile
-        ├── email/
-        │   ├── main.py
-        │   ├── email_reader.py
-        │   └── Dockerfile
-        └── ... (pozostałe serwery)
+    │   ├── decorators.py       # Model Context Protocol (MCP) Server
 
-# Plik: mcp/core/schema.py
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+A Python implementation of the Model Context Protocol server with support for multiple services including Docker, Filesystem, and Email operations.
 
-class MCPRequest(BaseModel):
-    id: str
-    source: str
-    target: str
-    type: str  # "query" | "command"
-    action: str
-    params: Dict[str, Any]
-    context: Optional[Dict[str, Any]] = {}
+## Features
 
-class MCPResponse(BaseModel):
-    id: str
-    source: str
-    status: str  # "success" | "error"
-    data: Optional[Any] = None
-    context: Optional[Dict[str, Any]] = {}
+- **Docker MCP Server**: Manage Docker containers, images, volumes, and networks
+- **Filesystem MCP Server**: Perform file and directory operations
+- **Email MCP Server**: Send and manage emails with various providers
+- **Webhook MCP Server**: Handle webhook events and callbacks
+- **RESTful API**: Modern API design with OpenAPI documentation
+- **Modular Architecture**: Easy to extend with new services
+- **Environment Configuration**: Centralized configuration using environment variables
+- **Logging & Monitoring**: Built-in logging and Prometheus metrics
 
-# Plik: mcp/core/decorators.py
-from functools import wraps
+## Prerequisites
 import time
 import logging
 
