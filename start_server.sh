@@ -13,7 +13,15 @@ NC='\033[0m' # No Color
 
 # Load environment variables
 if [ -f .env ]; then
-    export $(grep -v '^#' .env | xargs)
+    # Load env vars safely without exporting lines with special characters
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        if [[ $key && ! $key =~ ^\s*# && ! -z $value ]]; then
+            # Remove surrounding quotes if present
+            value=$(echo $value | sed -e 's/^["'\'']\(.*\)["'\'']$/\1/')
+            export $key="$value"
+        fi
+    done < .env
 fi
 
 # Default values
@@ -52,7 +60,7 @@ start_server() {
             --port $port \
             --workers $WORKERS \
             $RELOAD \
-            --log-level ${LOG_LEVEL:-info}
+            --log-level $(echo ${LOG_LEVEL:-info} | tr '[:upper:]' '[:lower:]')
     ) &
     
     # Store the PID

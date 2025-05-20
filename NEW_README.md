@@ -81,17 +81,17 @@ The following environment variables can be set in the `.env` file:
 
 #### Docker MCP Server
 - `DOCKER_ENABLED`: Enable Docker server (default: `true`)
-- `DOCKER_PORT`: Docker server port (default: `8001`)
+- `DOCKER_PORT`: Docker server port (default: `8004`)
 - `DOCKER_HOST`: Docker daemon socket (default: `unix:///var/run/docker.sock`)
 
 #### Filesystem MCP Server
 - `FILESYSTEM_ENABLED`: Enable Filesystem server (default: `true`)
-- `FILESYSTEM_PORT`: Filesystem server port (default: `8003`)
+- `FILESYSTEM_PORT`: Filesystem server port (default: `8006`)
 - `FILESYSTEM_BASE_PATH`: Base path for filesystem operations (default: `/data`)
 
 #### Email MCP Server
 - `EMAIL_ENABLED`: Enable Email server (default: `false`)
-- `EMAIL_PORT`: Email server port (default: `8002`)
+- `EMAIL_PORT`: Email server port (default: `8005`)
 - `SMTP_SERVER`: SMTP server address
 - `SMTP_PORT`: SMTP server port (default: `587`)
 - `SMTP_USERNAME`: SMTP username
@@ -102,9 +102,9 @@ The following environment variables can be set in the `.env` file:
 Once the servers are running, you can access the API documentation:
 
 - **Main API**: http://localhost:8000/docs
-- **Docker API**: http://localhost:8001/docs
-- **Filesystem API**: http://localhost:8003/docs
-- **Email API**: http://localhost:8002/docs
+- **Docker API**: http://localhost:8004/docs
+- **Email API**: http://localhost:8005/docs
+- **Filesystem API**: http://localhost:8006/docs
 
 ## Examples
 
@@ -112,14 +112,14 @@ Once the servers are running, you can access the API documentation:
 
 List all containers:
 ```bash
-curl -X POST http://localhost:8001/mcp/docker.containers.list \
+curl -X POST http://localhost:8004/mcp/docker.containers.list \
   -H "Content-Type: application/json" \
   -d '{"all": true}'
 ```
 
 Run a container:
 ```bash
-curl -X POST http://localhost:8001/mcp/docker.containers.run \
+curl -X POST http://localhost:8004/mcp/docker.containers.run \
   -H "Content-Type: application/json" \
   -d '{"image": "nginx:alpine", "detach": true}'
 ```
@@ -128,9 +128,18 @@ curl -X POST http://localhost:8001/mcp/docker.containers.run \
 
 List directory contents:
 ```bash
-curl -X POST http://localhost:8003/mcp/filesystem.listDirectory \
+curl -X POST http://localhost:8006/mcp/filesystem.listDirectory \
   -H "Content-Type: application/json" \
   -d '{"path": "/"}'
+```
+
+### Email API Examples
+
+Send an email:
+```bash
+curl -X POST http://localhost:8005/mcp/email.send \
+  -H "Content-Type: application/json" \
+  -d '{"to": "recipient@example.com", "subject": "Test Email", "body": "This is a test email from MCP server."}'
 ```
 
 ## Development

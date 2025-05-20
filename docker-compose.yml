@@ -7,9 +7,9 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"  # Main API
-      - "8001:8001"  # Docker API
-      - "8002:8002"  # Email API
-      - "8003:8003"  # Filesystem API
+      - "8004:8004"  # Docker API
+      - "8005:8005"  # Email API
+      - "8006:8006"  # Filesystem API
     volumes:
       - ./data:/data
       - /var/run/docker.sock:/var/run/docker.sock
@@ -19,9 +19,9 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8000
-      - DOCKER_PORT=8001
-      - EMAIL_PORT=8002
-      - FILESYSTEM_PORT=8003
+      - DOCKER_PORT=8004
+      - EMAIL_PORT=8005
+      - FILESYSTEM_PORT=8006
       - FILESYSTEM_BASE_PATH=/data
       - DOCKER_HOST=unix:///var/run/docker.sock
       - PYTHONUNBUFFERED=1
@@ -64,9 +64,15 @@ services:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/etc/grafana/dashboards
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
     depends_on:
       - prometheus
 

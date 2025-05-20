@@ -10,8 +10,9 @@ load_dotenv()
 
 # Test configuration
 BASE_URL = f"http://{os.getenv('HOST', 'localhost')}:{os.getenv('PORT', '8000')}"
-DOCKER_URL = f"http://{os.getenv('HOST', 'localhost')}:{os.getenv('DOCKER_PORT', '8001')}"
-FILESYSTEM_URL = f"http://{os.getenv('HOST', 'localhost')}:{os.getenv('FILESYSTEM_PORT', '8003')}"
+DOCKER_URL = f"http://{os.getenv('HOST', 'localhost')}:{os.getenv('DOCKER_PORT', '8004')}"
+EMAIL_URL = f"http://{os.getenv('HOST', 'localhost')}:{os.getenv('EMAIL_PORT', '8005')}"
+FILESYSTEM_URL = f"http://{os.getenv('HOST', 'localhost')}:{os.getenv('FILESYSTEM_PORT', '8006')}"
 
 class TestMCPAPI(unittest.IsolatedAsyncioTestCase):
     """Test cases for MCP API endpoints."""
