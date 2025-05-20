@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# Bezpośredni skrypt testowy, który uruchamia serwer MCP bez użycia uv
-# i bez wymagania Claude Desktop
+# Poprawiony skrypt testowy dla MCP, używający FastMCP zamiast Server/Tool
+# Ten skrypt jest kompatybilny z nowszymi wersjami SDK MCP
 
 # Aktywacja środowiska wirtualnego
 source mcp_env/bin/activate
 
-echo "==== Bezpośredni test serwera MCP ===="
+echo "==== Bezpośredni test serwera MCP (poprawiona wersja) ===="
 
 # Sprawdzenie czy wymagane pakiety są zainstalowane
-required_packages=("mcp" "aiosqlite" "aiofiles" "httpx")
+required_packages=("mcp" "aiosqlite" "aiofiles")
 missing_packages=()
 
 for package in "${required_packages[@]}"; do
@@ -26,54 +26,52 @@ fi
 # Tworzenie testowego środowiska
 mkdir -p mcp_server/data
 
-# Tworzenie skryptu serwera MCP
-cat > mcp_server/simple_server.py << 'EOL'
-import os
-import sqlite3
-import asyncio
-from mcp.server import Server, Tool
+# Sprawdzenie zainstalowanej wersji MCP
+MCP_VERSION=$(pip show mcp | grep Version | cut -d' ' -f2)
+echo "Zainstalowana wersja MCP: $MCP_VERSION"
 
-# Definicja prostego narzędzia
-class SimpleTool(Tool):
-    """Proste narzędzie testowe."""
+# Tworzenie skryptu poprawionego serwera MCP z FastMCP
+cat > mcp_server/simple_fastmcp_server.py << 'EOL'
+from mcp.server.fastmcp import FastMCP
 
-    async def call(self, arguments):
-        # Metoda wywoływana, gdy narzędzie jest używane
-        message = arguments.get("message", "brak wiadomości")
-        return f"Otrzymano wiadomość: {message}"
+# Tworzenie serwera MCP
+mcp = FastMCP("Prosty serwer testowy")
 
-# Inicjalizacja serwera MCP
-server = Server()
+# Proste narzędzie echo
+@mcp.tool()
+def echo(message: str) -> str:
+    """Zwraca otrzymaną wiadomość."""
+    return f"Otrzymano: {message}"
 
-# Rejestracja narzędzia
-server.register_tool(SimpleTool(name="echo", description="Proste narzędzie echo"))
+# Proste narzędzie kalkulacyjne
+@mcp.tool()
+def calculate(operation: str, a: float, b: float) -> str:
+    """Wykonuje podstawowe operacje matematyczne."""
+    if operation == "add":
+        result = a + b
+    elif operation == "subtract":
+        result = a - b
+    elif operation == "multiply":
+        result = a * b
+    elif operation == "divide":
+        if b == 0:
+            return "Błąd: Dzielenie przez zero"
+        result = a / b
+    else:
+        return f"Nieznana operacja: {operation}"
 
-# Główna funkcja uruchamiająca serwer
-async def run_server():
-    from mcp.server.stdio import stdio_server
-
-    print("Uruchamianie serwera MCP w trybie stdio...")
-
-    # Uruchomienie serwera w trybie stdio
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            server.create_initialization_options(
-                server_name="Simple MCP Server",
-                server_version="1.0.0"
-            )
-        )
+    return f"Wynik {a} {operation} {b} = {result}"
 
 # Uruchomienie serwera
 if __name__ == "__main__":
-    asyncio.run(run_server())
+    print("Uruchamianie serwera MCP (FastMCP)...")
+    mcp.run()
 EOL
 
 # Tworzenie skryptu testowego klienta
 cat > mcp_server/test_client.py << 'EOL'
 import asyncio
-import json
+import sys
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
@@ -81,7 +79,7 @@ async def run_test():
     # Parametry dla połączenia stdio do lokalnego skryptu
     server_params = StdioServerParameters(
         command="python",
-        args=["mcp_server/simple_server.py"]
+        args=["mcp_server/simple_fastmcp_server.py"]
     )
 
     try:
@@ -104,17 +102,41 @@ async def run_test():
                 else:
                     print("Narzędzie 'echo' nie jest dostępne")
 
+                # Wywołanie narzędzia calculate
+                if any(tool.name == "calculate" for tool in tools):
+                    print("Wywołanie narzędzia 'calculate'...")
+                    result = await session.call_tool("calculate", {"operation": "add", "a": 5, "b": 3})
+                    print(f"Wynik dodawania: {result.text}")
+
+                    result = await session.call_tool("calculate", {"operation": "multiply", "a": 4, "b": 7})
+                    print(f"Wynik mnożenia: {result.text}")
+                else:
+                    print("Narzędzie 'calculate' nie jest dostępne")
+
                 print("Test zakończony pomyślnie!")
+
     except Exception as e:
         print(f"Błąd podczas testu: {str(e)}")
+        print(f"Typ wyjątku: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+    return True
 
 if __name__ == "__main__":
-    asyncio.run(run_test())
+    success = asyncio.run(run_test())
+    # Ustawienie kodu wyjścia na podstawie wyniku testu
+    sys.exit(0 if success else 1)
 EOL
 
 # Uruchomienie testu
 echo "Uruchamianie testu klienta MCP..."
-python mcp_server/test_client.py
+if python mcp_server/test_client.py; then
+    echo "Test zakończony pomyślnie!"
+else
+    echo "Test nie powiódł się. Szczegóły powyżej."
+fi
 
 # Zapytanie czy użytkownik chce uruchomić serwer w trybie interaktywnym
 echo ""
@@ -123,7 +145,7 @@ read answer
 
 if [[ "$answer" == "t" ]]; then
     echo "Uruchamianie serwera MCP..."
-    python mcp_server/simple_server.py
+    python mcp_server/simple_fastmcp_server.py
 else
     echo "Test zakończony."
 fi

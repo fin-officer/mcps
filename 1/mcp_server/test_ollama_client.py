@@ -7,11 +7,11 @@ async def run_test():
     # Parametry dla połączenia stdio do lokalnego skryptu
     server_params = StdioServerParameters(
         command="python",
-        args=["mcp_server/simple_fastmcp_server.py"]
+        args=["mcp_server/ollama_server.py"]
     )
 
     try:
-        print("Łączenie z serwerem MCP...")
+        print("Łączenie z serwerem MCP z Ollama...")
         # Nawiązanie połączenia z serwerem
         async with stdio_client(server_params) as (read, write):
             async with ClientSession(read, write) as session:
@@ -22,24 +22,21 @@ async def run_test():
                 tools = await session.list_tools()
                 print(f"Dostępne narzędzia: {[tool.name for tool in tools]}")
 
-                # Wywołanie narzędzia echo
+                # Wywołanie narzędzia echo dla testu podstawowej funkcjonalności
                 if any(tool.name == "echo" for tool in tools):
                     print("Wywołanie narzędzia 'echo'...")
-                    result = await session.call_tool("echo", {"message": "Testowa wiadomość"})
+                    result = await session.call_tool("echo", {"message": "Test działania serwera"})
                     print(f"Otrzymana odpowiedź: {result.text}")
                 else:
                     print("Narzędzie 'echo' nie jest dostępne")
 
-                # Wywołanie narzędzia calculate
-                if any(tool.name == "calculate" for tool in tools):
-                    print("Wywołanie narzędzia 'calculate'...")
-                    result = await session.call_tool("calculate", {"operation": "add", "a": 5, "b": 3})
-                    print(f"Wynik dodawania: {result.text}")
-
-                    result = await session.call_tool("calculate", {"operation": "multiply", "a": 4, "b": 7})
-                    print(f"Wynik mnożenia: {result.text}")
+                # Wywołanie narzędzia Ollama jeśli jest dostępne
+                if any(tool.name == "ollama_ask" for tool in tools):
+                    print("Wywołanie narzędzia 'ollama_ask'...")
+                    result = await session.call_tool("ollama_ask", {"prompt": "Wymień 3 największe miasta w Polsce."})
+                    print(f"Odpowiedź Ollama: {result.text}")
                 else:
-                    print("Narzędzie 'calculate' nie jest dostępne")
+                    print("Narzędzie 'ollama_ask' nie jest dostępne")
 
                 print("Test zakończony pomyślnie!")
 
