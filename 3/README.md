@@ -1,5 +1,8 @@
 # Uniwersalny Serwer Ollama
 
+https://ollama.com/search?c=vision
+https://ollama.com/search?o=newest
+
 ![GUI.png](GUI.png)
 
 Kompletne, uniwersalne rozwiązanie do uruchamiania i zarządzania lokalnym serwerem modeli językowych poprzez Ollama. Działa na wszystkich dystrybucjach Linuxa oraz macOS.
