@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Skrypt do zarządzania modelami Ollama
-# Autor: Claude
+# Autor: Tom
 # Data: 2025-05-20
 
 # Kolory dla lepszej czytelności

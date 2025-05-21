@@ -173,7 +173,7 @@ if __name__ == "__main__":
 EOL
 
 # Tworzenie skryptu uruchamiającego serwer z Ollama
-cat > run_ollama_server.sh << 'EOL'
+cat > run_server.sh << 'EOL'
 #!/bin/bash
 source mcp_env/bin/activate
 echo "Sprawdzanie, czy Ollama jest uruchomiona..."
@@ -187,14 +187,14 @@ fi
 echo "Uruchamianie serwera MCP z integracją Ollama..."
 python mcp_server/ollama_basic.py
 EOL
-chmod +x run_ollama_server.sh
+chmod +x run_server.sh
 
 echo
 echo "==== Test zakończony ===="
 echo
 echo "Możesz teraz uruchomić jeden z następujących serwerów:"
 echo "1. Prosty serwer MCP: ./run_mcp_server.sh"
-echo "2. Serwer MCP z integracją Ollama: ./run_ollama_server.sh"
+echo "2. Serwer MCP z integracją Ollama: ./run_server.sh"
 echo
 echo "Serwer będzie dostępny na porcie 8000, możesz wysyłać zapytania za pomocą:"
 echo "curl -X POST -H \"Content-Type: application/json\" -d '{\"name\":\"echo\",\"arguments\":{\"message\":\"Test\"}}' http://localhost:8000/v1/tools"

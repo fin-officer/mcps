@@ -103,7 +103,7 @@ if __name__ == "__main__":
 EOL
 
 # Tworzenie prostego serwera MCP z narzędziem Ollama
-cat > mcp_server/ollama_server.py << 'EOL'
+cat > mcp_server/server.py << 'EOL'
 from mcp.server.fastmcp import FastMCP, Context
 from ollama_client import query_ollama
 
@@ -141,7 +141,7 @@ async def run_test():
     # Parametry dla połączenia stdio do lokalnego skryptu
     server_params = StdioServerParameters(
         command="python",
-        args=["mcp_server/ollama_server.py"]
+        args=["mcp_server/server.py"]
     )
 
     try:
@@ -320,7 +320,7 @@ echo ""
 read -p "Czy chcesz uruchomić serwer MCP z integracją Ollama? (t/n): " run_server
 if [[ "$run_server" == "t" ]]; then
     echo "Uruchamianie serwera MCP z Ollama..."
-    python mcp_server/ollama_server.py
+    python mcp_server/server.py
 else
     echo "Test zakończony."
 fi

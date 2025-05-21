@@ -7,7 +7,7 @@ async def run_test():
     # Parametry dla połączenia stdio do lokalnego skryptu
     server_params = StdioServerParameters(
         command="python",
-        args=["mcp_server/ollama_server.py"]
+        args=["mcp_server/server.py"]
     )
 
     try:

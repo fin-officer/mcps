@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Prosty skrypt do zadawania pytań do TinyLLM via Ollama
-# Autor: Claude
+# Autor: Tom
 # Data: 2025-05-20
 
 # Kolory

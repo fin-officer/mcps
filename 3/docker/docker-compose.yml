@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # Serwer Ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-server
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ollama-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Alternatywnie dla użytkowników bez GPU NVIDIA
+    # devices:
+    #   - /dev/kvm:/dev/kvm
+    environment:
+      - OLLAMA_MODELS_PATH=/root/.ollama/models
+    command: serve
+
+  # Serwer API Flask
+  api-server:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: ollama-api-server
+    ports:
+      - "5001:5001"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - SERVER_PORT=5001
+      - MODEL_NAME=tinyllama:latest
+      - TEMPERATURE=0.7
+      - MAX_TOKENS=1000
+    networks:
+      - ollama-network
+    restart: unless-stopped
+    volumes:
+      - ./:/app:ro  # Montowanie bieżącego katalogu jako tylko do odczytu
+    command: python server.py
+
+  # Usługa do pobierania modelu (uruchamia się raz i kończy działanie)
+  model-puller:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - ollama-network
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "if ollama list | grep -q 'tinyllama'; then
+         echo 'Model tinyllama już istnieje';
+       else
+         echo 'Pobieranie modelu tinyllama...';
+         ollama pull tinyllama;
+       fi"
+    restart: no  # Nie uruchamiaj ponownie po zakończeniu
+
+volumes:
+  ollama_data:
+    name: ollama_data
+
+networks:
+  ollama-network:
+    name: ollama-network
+    driver: bridge

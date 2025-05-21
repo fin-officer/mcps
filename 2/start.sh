@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Skrypt startowy - instaluje wszystko i uruchamia kompletne środowisko
-# Autor: Claude
+# Autor: Tom
 # Data: 2025-05-20
 
 # Kolory dla lepszej czytelności
@@ -16,10 +16,10 @@ echo -e "${BLUE}${BOLD}=== Uruchamianie środowiska Ollama z wyborem modeli ===$
 
 # Lista wymaganych plików
 required_files=(
-  "setup_ollama_models.sh"
+  "models.sh"
   "env_loader.py"
-  "ollama_server.py"
-  "ask_ollama.sh"
+  "server.py"
+  "ask.sh"
 )
 
 # Funkcja do sprawdzania czy wszystkie pliki istnieją
@@ -92,8 +92,8 @@ install_packages() {
 set_permissions() {
   echo -e "${BLUE}Nadawanie uprawnień wykonywania skryptom...${NC}"
 
-  chmod +x setup_ollama_models.sh
-  chmod +x ask_ollama.sh
+  chmod +x models.sh
+  chmod +x ask.sh
 
   return 0
 }
@@ -102,7 +102,7 @@ set_permissions() {
 configure_ollama() {
   echo -e "${BLUE}Konfiguracja Ollama i modeli...${NC}"
 
-  ./setup_ollama_models.sh
+  ./models.sh
 
   if [ $? -ne 0 ]; then
     echo -e "${RED}Błąd podczas konfiguracji Ollama${NC}"
@@ -128,7 +128,7 @@ run_server() {
   echo -e "${GREEN}Serwer będzie dostępny pod adresem:${NC} http://localhost:${SERVER_PORT}"
   echo -e "${YELLOW}Naciśnij Ctrl+C aby zatrzymać serwer${NC}"
 
-  python ollama_server.py
+  python server.py
 
   return $?
 }

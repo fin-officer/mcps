@@ -467,7 +467,7 @@ def call_ollama_api(prompt, temperature=None, max_tokens=None):
 
 
 @app.route('/ask', methods=['POST'])
-def ask_ollama():
+def ask():
     """Zadaj pytanie do modelu Ollama."""
     # Debugowanie żądania
     print(f"\n===== NOWE ZAPYTANIE =====")

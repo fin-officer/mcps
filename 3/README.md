@@ -268,7 +268,7 @@ Kompletne rozwiązanie do uruchamiania i zarządzania lokalnym serwerem modeli j
 
 2. **Uruchom serwer**:
    ```bash
-   python ollama_server.py
+   python server.py
    ```
    
    Serwer uruchomi się domyślnie na porcie 5001.
@@ -285,9 +285,9 @@ Kompletne rozwiązanie do uruchamiania i zarządzania lokalnym serwerem modeli j
 ## Struktura projektu
 
 - `model.sh` - Skrypt do konfiguracji i pobierania modeli Ollama
-- `ollama_server.py` - Główny serwer Flask z interfejsem web i API REST
+- `server.py` - Główny serwer Flask z interfejsem web i API REST
 - `env_loader.py` - Moduł do ładowania konfiguracji z pliku .env
-- `ask_ollama.sh` - Skrypt klienta do zadawania pytań
+- `ask.sh` - Skrypt klienta do zadawania pytań
 - `.env` - Plik konfiguracyjny (tworzony automatycznie)
 
 ## Plik .env
@@ -454,6 +454,6 @@ ollama pull tinyllama
 
 ### Błąd parsowania JSON
 
-Jeśli otrzymujesz błąd parsowania JSON, spróbuj zaktualizować skrypt `ask_ollama.sh` lub użyj interfejsu web.
+Jeśli otrzymujesz błąd parsowania JSON, spróbuj zaktualizować skrypt `ask.sh` lub użyj interfejsu web.
 
 
