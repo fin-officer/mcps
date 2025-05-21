@@ -1,1 +1,2 @@
 - paczka python
+- pozwalaj na tetsowanie kilku na raz z rejestrowaniem parametrow do diagnostyki jak czas wykonania, sprzet, itp w celu porownania

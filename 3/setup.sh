@@ -90,15 +90,16 @@ check_python() {
 
     if command -v python3 &> /dev/null; then
         PYTHON="python3"
-        log "success" "Python 3 znaleziony"
+        local python_version=$($PYTHON --version 2>&1)
+        log "success" "Python 3 znaleziony ($python_version)"
     elif command -v python &> /dev/null; then
         # Sprawdzenie wersji
-        PYTHON_VERSION=$(python --version 2>&1)
-        if [[ $PYTHON_VERSION == *"Python 3"* ]]; then
+        local python_version=$(python --version 2>&1)
+        if [[ $python_version == *"Python 3"* ]]; then
             PYTHON="python"
-            log "success" "Python 3 znaleziony"
+            log "success" "Python 3 znaleziony ($python_version)"
         else
-            log "error" "Znaleziono $(python --version 2>&1), ale wymagany jest Python 3"
+            log "error" "Znaleziono $python_version, ale wymagany jest Python 3"
             return 1
         fi
     else
@@ -114,7 +115,8 @@ check_pip() {
     log "info" "Sprawdzanie instalacji pip..."
 
     if $PYTHON -m pip --version &> /dev/null; then
-        log "success" "pip znaleziony"
+        local pip_version=$($PYTHON -m pip --version)
+        log "success" "pip znaleziony ($pip_version)"
         return 0
     else
         log "warning" "pip nie jest zainstalowany"
@@ -123,29 +125,36 @@ check_pip() {
         # Próba instalacji pip (różnie w zależności od systemu)
         if command -v apt-get &> /dev/null; then
             # Debian/Ubuntu
+            log "info" "Wykryto system bazujący na Debian/Ubuntu, używam apt-get..."
             sudo apt-get update
             sudo apt-get install -y python3-pip
         elif command -v yum &> /dev/null; then
             # CentOS/RHEL
+            log "info" "Wykryto system bazujący na CentOS/RHEL, używam yum..."
             sudo yum install -y python3-pip
         elif command -v dnf &> /dev/null; then
             # Fedora
+            log "info" "Wykryto system bazujący na Fedora, używam dnf..."
             sudo dnf install -y python3-pip
         elif command -v pacman &> /dev/null; then
             # Arch Linux
+            log "info" "Wykryto system bazujący na Arch Linux, używam pacman..."
             sudo pacman -S python-pip
         elif command -v brew &> /dev/null; then
             # macOS z Homebrew
+            log "info" "Wykryto macOS z Homebrew, używam brew..."
             brew install python3
         elif command -v zypper &> /dev/null; then
             # openSUSE
+            log "info" "Wykryto system openSUSE, używam zypper..."
             sudo zypper install python3-pip
         elif command -v apk &> /dev/null; then
             # Alpine Linux
+            log "info" "Wykryto system Alpine Linux, używam apk..."
             apk add python3-pip
         else
             # Próba instalacji pip za pomocą get-pip.py
-            log "info" "Próba instalacji pip za pomocą get-pip.py..."
+            log "info" "Nie wykryto standardowego menedżera pakietów, próba instalacji pip za pomocą get-pip.py..."
             curl -s https://bootstrap.pypa.io/get-pip.py -o get-pip.py
             $PYTHON get-pip.py
             rm get-pip.py
@@ -153,12 +162,21 @@ check_pip() {
 
         # Sprawdzenie czy pip został zainstalowany
         if $PYTHON -m pip --version &> /dev/null; then
-            log "success" "pip został zainstalowany"
+            local pip_version=$($PYTHON -m pip --version)
+            log "success" "pip został zainstalowany ($pip_version)"
             return 0
         else
             log "error" "Nie udało się zainstalować pip"
             log "warning" "Zainstaluj pip ręcznie: https://pip.pypa.io/en/stable/installation/"
-            return 1
+
+            # Daj użytkownikowi wybór czy kontynuować bez pip
+            read -p "Czy chcesz kontynuować mimo braku pip? (t/n): " continue_choice
+            if [[ "$continue_choice" == "t" || "$continue_choice" == "T" ]]; then
+                log "warning" "Kontynuowanie bez pip..."
+                return 0
+            else
+                return 1
+            fi
         fi
     fi
 }
@@ -190,47 +208,81 @@ check_ollama() {
 install_packages() {
     log "info" "Instalacja wymaganych pakietów Python..."
 
-    # Sprawdzenie zainstalowanych pakietów
-    local installed_packages=$($PYTHON -m pip list 2>/dev/null | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
+    # Bezpośrednia instalacja pakietów zamiast wstępnego sprawdzania
+    # To rozwiązuje problem z detekcją zainstalowanych pakietów
+    log "info" "Instalacja pakietów: ${REQUIRED_PACKAGES[*]}"
 
-    # Filtrowanie pakietów, które trzeba zainstalować
-    local packages_to_install=()
-    for package in "${REQUIRED_PACKAGES[@]}"; do
-        if ! echo "$installed_packages" | grep -q "^$(echo "$package" | tr '[:upper:]' '[:lower:]')$"; then
-            packages_to_install+=("$package")
-        fi
-    done
+    # Pierwsza próba - z opcją --user
+    $PYTHON -m pip install --user --upgrade "${REQUIRED_PACKAGES[@]}" 2>/dev/null
 
-    # Instalacja brakujących pakietów
-    if [ ${#packages_to_install[@]} -gt 0 ]; then
-        log "info" "Instalacja pakietów: ${packages_to_install[*]}"
-        $PYTHON -m pip install --user "${packages_to_install[@]}"
+    # Sprawdzenie kodu wyjścia
+    if [ $? -ne 0 ]; then
+        # Próba bez --user w przypadku błędu (np. w środowisku virtualenv)
+        log "warning" "Próba instalacji bez opcji --user..."
+        $PYTHON -m pip install --upgrade "${REQUIRED_PACKAGES[@]}"
 
         if [ $? -ne 0 ]; then
             log "error" "Błąd podczas instalacji pakietów"
-            return 1
+
+            # Spróbujmy zainstalować każdy pakiet osobno
+            log "warning" "Próba instalacji pakietów pojedynczo..."
+            local failed_packages=()
+
+            for package in "${REQUIRED_PACKAGES[@]}"; do
+                log "info" "Instalacja pakietu: $package"
+                $PYTHON -m pip install --upgrade "$package"
+
+                if [ $? -ne 0 ]; then
+                    failed_packages+=("$package")
+                fi
+            done
+
+            if [ ${#failed_packages[@]} -gt 0 ]; then
+                log "error" "Nie udało się zainstalować następujących pakietów: ${failed_packages[*]}"
+                log "warning" "Spróbuj zainstalować je ręcznie: $PYTHON -m pip install ${failed_packages[*]}"
+                return 1
+            fi
         fi
-    else
-        log "success" "Wszystkie wymagane pakiety są już zainstalowane"
     fi
 
-    # Sprawdzenie czy wszystkie pakiety zostały zainstalowane
+    # Weryfikacja importów
+    log "info" "Weryfikacja instalacji pakietów..."
     local missing=()
-    for package in "${REQUIRED_PACKAGES[@]}"; do
-        # Konwersja nazwy pakietu dla poprawnego importu
-        local import_name=$(echo "$package" | tr '-' '_')
-        if ! $PYTHON -c "import $import_name" &> /dev/null; then
-            missing+=("$package")
+
+    # Flask
+    if ! $PYTHON -c "import flask" &> /dev/null; then
+        missing+=("flask")
+    fi
+
+    # Requests
+    if ! $PYTHON -c "import requests" &> /dev/null; then
+        missing+=("requests")
+    fi
+
+    # Python-dotenv (specjalna obsługa)
+    # Pakiet nazywa się python-dotenv, ale importujemy dotenv
+    if ! $PYTHON -c "import dotenv" &> /dev/null; then
+        # Druga próba z inną nazwą modułu
+        if ! $PYTHON -c "import os; import dotenv" &> /dev/null; then
+            missing+=("python-dotenv")
         fi
-    done
+    fi
 
     if [ ${#missing[@]} -eq 0 ]; then
         log "success" "Wszystkie pakiety zostały zainstalowane pomyślnie"
         return 0
     else
-        log "error" "Nie udało się zainstalować następujących pakietów: ${missing[*]}"
-        log "warning" "Spróbuj zainstalować je ręcznie: $PYTHON -m pip install ${missing[*]}"
-        return 1
+        log "error" "Nie udało się zweryfikować następujących pakietów: ${missing[*]}"
+        log "warning" "Problemy z importem. Spróbuj ręcznie: $PYTHON -m pip install --upgrade ${missing[*]}"
+
+        # Interaktywne pytanie o kontynuację
+        read -p "Czy chcesz kontynuować mimo problemów z pakietami? (t/n): " continue_choice
+        if [[ "$continue_choice" == "t" || "$continue_choice" == "T" ]]; then
+            log "warning" "Kontynuowanie pomimo problemów z pakietami..."
+            return 0
+        else
+            return 1
+        fi
     fi
 }
 
@@ -335,33 +387,148 @@ configure_models() {
     read -p "Czy chcesz pobrać nowy model? (t/n): " download_model
     if [[ "$download_model" == "t" || "$download_model" == "T" ]]; then
         echo -e "${BLUE}Popularne modele:${NC}"
-        echo "1) llama3 - Najnowszy model Meta (8B parametrów)"
-        echo "2) phi3 - Model Microsoft (3.8B parametrów, szybki)"
-        echo "3) mistral - Dobry kompromis jakość/rozmiar (7B parametrów)"
-        echo "4) gemma - Model Google (7B parametrów)"
-        echo "5) tinyllama - Mały model (1.1B parametrów, bardzo szybki)"
-        echo "6) inny - Własny wybór modelu"
+        echo "1) llama3 - Najnowszy model Meta (8B parametrów) - ogólnego przeznaczenia, dobry do większości zadań"
+        echo "2) phi3 - Model Microsoft (3.8B parametrów) - szybki, dobry do prostszych zadań, zoptymalizowany pod kątem kodu"
+        echo "3) mistral - Dobry kompromis jakość/rozmiar (7B parametrów) - ogólnego przeznaczenia, efektywny energetycznie"
+        echo "4) gemma - Model Google (7B parametrów) - dobry do zadań języka naturalnego i kreatywnego pisania"
+        echo "5) tinyllama - Mały model (1.1B parametrów) - bardzo szybki, idealny dla słabszych urządzeń"
+        echo "6) qwen - Model Alibaba Cloud (7-14B parametrów) - dobry w analizie tekstu, wsparcie dla języków azjatyckich"
+        echo "7) llava - Model multimodalny z obsługą obrazów (7-13B parametrów) - pozwala na analizę obrazów i tekstu"
+        echo "8) codellama - Wyspecjalizowany model do kodowania (7-34B parametrów) - świetny do generowania i analizy kodu"
+        echo "9) vicuna - Modyfikacja LLaMa (7-13B parametrów) - wytrenowany na konwersacjach, dobry do dialogów"
+        echo "10) falcon - Model TII (7-40B parametrów) - szybki i efektywny, dobry stosunek wydajności do rozmiaru"
+        echo "11) orca-mini - Lekka wersja modelu Orca (3B parametrów) - dobry do podstawowych zadań NLP"
+        echo "12) wizardcoder - Wyspecjalizowany dla programistów (13B parametrów) - stworzony do zadań związanych z kodem"
+        echo "13) llama2 - Poprzednia generacja modelu Meta (7-70B parametrów) - sprawdzony w różnych zastosowaniach"
+        echo "14) stablelm - Model Stability AI (3-7B parametrów) - dobry do generowania tekstu i dialogów"
+        echo "15) dolphin - Dostrojony model konwersacyjny (7B parametrów) - koncentruje się na naturalności dialogów"
+        echo "16) neural-chat - Model rozmów od Intel (7-13B parametrów) - zoptymalizowany pod kątem urządzeń Intel"
+        echo "17) starling - Model optymalizowany pod kątem jakości odpowiedzi (7B parametrów) - mniejszy ale skuteczny"
+        echo "18) openhermes - Model z naciskiem na postępowanie zgodnie z instrukcjami (7B parametrów) - dobra dokładność"
+        echo "19) yi - Model 01.AI (6-34B parametrów) - zaawansowany model wielojęzyczny"
+        echo "20) inny - Własny wybór modelu"
 
-        read -p "Wybierz model do pobrania (1-6): " model_choice
+        read -p "Wybierz model do pobrania (1-20): " model_choice
 
         case $model_choice in
             1)
                 model_name="llama3"
+                model_size="8B"
+                model_desc="ogólnego przeznaczenia, dobry do większości zadań"
                 ;;
             2)
                 model_name="phi3"
+                model_size="3.8B"
+                model_desc="szybki, dobry do prostszych zadań, zoptymalizowany pod kątem kodu"
                 ;;
             3)
                 model_name="mistral"
+                model_size="7B"
+                model_desc="ogólnego przeznaczenia, efektywny energetycznie"
                 ;;
             4)
                 model_name="gemma"
+                model_size="7B"
+                model_desc="dobry do zadań języka naturalnego i kreatywnego pisania"
                 ;;
             5)
                 model_name="tinyllama"
+                model_size="1.1B"
+                model_desc="bardzo szybki, idealny dla słabszych urządzeń"
                 ;;
             6)
+                model_name="qwen"
+                model_size="7B"
+                model_desc="dobry w analizie tekstu, wsparcie dla języków azjatyckich"
+                ;;
+            7)
+                model_name="llava"
+                model_size="7B"
+                model_desc="multimodalny z obsługą obrazów"
+                ;;
+            8)
+                model_name="codellama"
+                model_size="7B"
+                model_desc="wyspecjalizowany model do kodowania"
+                ;;
+            9)
+                model_name="vicuna"
+                model_size="7B"
+                model_desc="wytrenowany na konwersacjach, dobry do dialogów"
+                ;;
+            10)
+                model_name="falcon"
+                model_size="7B"
+                model_desc="szybki i efektywny, dobry stosunek wydajności do rozmiaru"
+                ;;
+            11)
+                model_name="orca-mini"
+                model_size="3B"
+                model_desc="dobry do podstawowych zadań NLP"
+                ;;
+            12)
+                model_name="wizardcoder"
+                model_size="13B"
+                model_desc="stworzony do zadań związanych z kodem"
+                ;;
+            13)
+                model_name="llama2"
+                model_size="7B"
+                model_desc="sprawdzony w różnych zastosowaniach"
+                ;;
+            14)
+                model_name="stablelm"
+                model_size="3B"
+                model_desc="dobry do generowania tekstu i dialogów"
+                ;;
+            15)
+                model_name="dolphin"
+                model_size="7B"
+                model_desc="koncentruje się na naturalności dialogów"
+                ;;
+            16)
+                model_name="neural-chat"
+                model_size="7B"
+                model_desc="zoptymalizowany pod kątem urządzeń Intel"
+                ;;
+            17)
+                model_name="starling"
+                model_size="7B"
+                model_desc="mniejszy ale skuteczny"
+                ;;
+            18)
+                model_name="openhermes"
+                model_size="7B"
+                model_desc="dobra dokładność, postępowanie zgodnie z instrukcjami"
+                ;;
+            19)
+                model_name="yi"
+                model_size="6B"
+                model_desc="zaawansowany model wielojęzyczny"
+                ;;
+            20)
+                # Pytanie o rozmiar
+                echo -e "${BLUE}Popularne rozmiary modeli:${NC}"
+                echo "1) mini - Bardzo małe modele (~1-3B parametrów) - szybkie, ale ograniczone możliwości"
+                echo "2) small - Małe modele (~3-7B parametrów) - dobry kompromis szybkość/jakość"
+                echo "3) medium - Średnie modele (~8-13B parametrów) - lepsze odpowiedzi, wymaga więcej RAM"
+                echo "4) large - Duże modele (~30-70B parametrów) - najlepsza jakość, wysokie wymagania sprzętowe"
+                read -p "Wybierz preferowany rozmiar modelu (1-4, Enter dla dowolnego): " size_choice
+
+                # Pytanie o specjalizację
+                echo -e "${BLUE}Zastosowanie modelu:${NC}"
+                echo "1) Ogólnego przeznaczenia - do większości zadań"
+                echo "2) Kod - wyspecjalizowany w programowaniu"
+                echo "3) Matematyka/Nauka - lepszy w zadaniach naukowych"
+                echo "4) Wielojęzyczny - dobry w wielu językach"
+                echo "5) Konwersacyjny - zoptymalizowany pod kątem dialogów"
+                read -p "Wybierz zastosowanie (1-5, Enter dla dowolnego): " purpose_choice
+
                 read -p "Podaj nazwę modelu do pobrania: " model_name
+
+                # Ustaw domyślne wartości
+                model_size="?"
+                model_desc="własny wybór"
                 ;;
             *)
                 log "error" "Nieprawidłowy wybór"
@@ -369,7 +536,7 @@ configure_models() {
                 ;;
         esac
 
-        log "info" "Pobieranie modelu $model_name..."
+        log "info" "Pobieranie modelu $model_name (${model_size}, ${model_desc})..."
         ollama pull $model_name
 
         if [ $? -ne 0 ]; then
@@ -378,6 +545,19 @@ configure_models() {
         else
             log "success" "Model $model_name został pobrany pomyślnie"
             MODELS_LOADED=true
+        fi
+
+        # Aktualizacja domyślnego modelu w pliku .env
+        if [ -f ".env" ]; then
+            # Sprawdzenie czy MODEL_NAME już istnieje w pliku
+            if grep -q "^MODEL_NAME=" .env; then
+                # Aktualizacja istniejącego wpisu
+                sed -i.bak "s/^MODEL_NAME=.*/MODEL_NAME=\"$model_name:latest\"/" .env && rm -f .env.bak
+            else
+                # Dodanie nowego wpisu
+                echo "MODEL_NAME=\"$model_name:latest\"" >> .env
+            fi
+            log "success" "Zaktualizowano domyślny model w pliku .env na $model_name:latest"
         fi
     fi
 
@@ -593,7 +773,15 @@ main() {
     if [ "$RUN_ONLY" = true ]; then
         # Uruchomienie Ollama jeśli nie działa
         if ! curl -s --head --connect-timeout 2 http://localhost:11434 &> /dev/null; then
+            log "info" "Serwer Ollama nie jest uruchomiony, próba uruchomienia..."
             start_ollama
+            if [ $? -ne 0 ]; then
+                log "error" "Nie udało się uruchomić serwera Ollama"
+                log "warning" "Spróbuj uruchomić Ollama ręcznie: ollama serve"
+                exit 1
+            fi
+        else
+            log "success" "Serwer Ollama już działa"
         fi
 
         # Aktualizacja pliku .env jeśli podano port
@@ -601,6 +789,13 @@ main() {
             update_env_file
         fi
 
+        # Sprawdź czy server.py istnieje
+        if [ ! -f "server.py" ]; then
+            log "error" "Plik server.py nie istnieje w bieżącym katalogu"
+            exit 1
+        fi
+
+        # Uruchom serwer
         start_server
         exit $?
     fi
@@ -609,13 +804,31 @@ main() {
     setup_environment
     if [ $? -ne 0 ]; then
         log "error" "Konfiguracja środowiska nie powiodła się"
-        exit 1
+
+        # Daj użytkownikowi wybór czy kontynuować mimo problemów
+        read -p "Czy chcesz kontynuować mimo problemów z konfiguracją? (t/n): " continue_choice
+        if [[ "$continue_choice" != "t" && "$continue_choice" != "T" ]]; then
+            exit 1
+        fi
+        log "warning" "Kontynuowanie pomimo problemów z konfiguracją..."
     fi
 
-    start_ollama
-    if [ $? -ne 0 ]; then
-        log "error" "Nie udało się uruchomić serwera Ollama"
-        exit 1
+    # Uruchomienie Ollama
+    if ! curl -s --head --connect-timeout 2 http://localhost:11434 &> /dev/null; then
+        log "info" "Uruchamianie serwera Ollama..."
+        start_ollama
+        if [ $? -ne 0 ]; then
+            log "error" "Nie udało się uruchomić serwera Ollama"
+
+            # Daj użytkownikowi wybór czy kontynuować bez Ollama
+            read -p "Czy chcesz kontynuować bez działającego serwera Ollama? (t/n): " continue_choice
+            if [[ "$continue_choice" != "t" && "$continue_choice" != "T" ]]; then
+                exit 1
+            fi
+            log "warning" "Kontynuowanie bez działającego serwera Ollama..."
+        fi
+    else
+        log "success" "Serwer Ollama już działa"
     fi
 
     # Pytanie o konfigurację modeli
@@ -624,6 +837,7 @@ main() {
         configure_models
     fi
 
+    # Uruchomienie serwera
     start_server
 
     # Czyszczenie po zakończeniu
