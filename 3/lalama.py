@@ -5,12 +5,37 @@ import os
 import json
 import time
 import subprocess
-import requests
 import sys
-import pkg_resources
-import importlib
 import re
 from typing import List, Dict, Any, Tuple, Optional
+
+
+# Funkcja do instalacji podstawowych zależności
+def ensure_basic_dependencies():
+    """Sprawdza i instaluje podstawowe zależności potrzebne do działania skryptu."""
+    basic_dependencies = ['setuptools', 'requests']
+
+    for dep in basic_dependencies:
+        try:
+            # Próba importu, aby sprawdzić czy jest zainstalowany
+            __import__(dep)
+        except ImportError:
+            print(f"Instalowanie podstawowej zależności: {dep}...")
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", dep])
+                print(f"Zainstalowano {dep}")
+            except subprocess.CalledProcessError:
+                print(f"Nie udało się zainstalować {dep}. Przerwanie.")
+                sys.exit(1)
+
+
+# Instalacja podstawowych zależności przed importowaniem pozostałych modułów
+ensure_basic_dependencies()
+
+# Teraz importujemy pozostałe moduły
+import requests
+import importlib
+import pkg_resources  # Z setuptools
 
 
 class OllamaRunner:
@@ -155,11 +180,20 @@ class DependencyManager:
 
 def main():
     """Główna funkcja programu."""
-    # Utwórz instancje klas
-    ollama = OllamaRunner()
-    dependency_manager = DependencyManager()
-
     try:
+        # Sprawdź, czy Ollama jest zainstalowana
+        try:
+            subprocess.run([os.environ.get("OLLAMA_PATH", "ollama"), "--version"],
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+        except FileNotFoundError:
+            print("Ollama nie jest zainstalowana lub nie jest dostępna w ścieżce systemowej.")
+            print("Proszę zainstalować Ollama: https://ollama.ai/download")
+            return
+
+        # Utwórz instancje klas
+        ollama = OllamaRunner()
+        dependency_manager = DependencyManager()
+
         # Uruchom Ollama
         ollama.start_ollama()
 
@@ -201,11 +235,17 @@ def main():
 
     except Exception as e:
         print(f"Wystąpił błąd: {e}")
+        import traceback
+        traceback.print_exc()
 
     finally:
-        # Zatrzymaj Ollama
-        ollama.stop_ollama()
+        # Zatrzymaj Ollama jeśli została uruchomiona przez ten skrypt
+        if 'ollama' in locals():
+            ollama.stop_ollama()
 
 
 if __name__ == "__main__":
+    # Sprawdź czy skrypt jest uruchomiony bezpośrednio (nie zaimportowany)
+    # Najpierw zainstaluj podstawowe zależności
+    ensure_basic_dependencies()
     main()
