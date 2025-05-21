@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Ollama Server - Strona główna{% endblock %}
+
+{% block status_bar %}
+<div class="status-bar">
+    <div class="status-item">
+        <span class="status-label">Serwer Ollama:</span>
+        <span class="status-indicator {% if ollama_available %}online{% else %}offline{% endif %}">
+            {% if ollama_available %}Online{% else %}Offline{% endif %}
+        </span>
+    </div>
+    <div class="status-item">
+        <span class="status-label">Model:</span>
+        <span class="status-value">{{ config.MODEL_NAME }}</span>
+        <span class="status-indicator {% if model_available %}online{% else %}offline{% endif %}">
+            {% if model_available %}Dostępny{% else %}Niedostępny{% endif %}
+        </span>
+    </div>
+    <div class="status-item">
+        <button id="modelSwitchBtn" class="btn">Zmień model</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block alerts %}
+    {{ super() }}
+    {% if not ollama_available %}
+    <div class="error-message">
+        <h2>Serwer Ollama jest niedostępny</h2>
+        <p>Upewnij się, że Ollama jest uruchomiona. Możesz uruchomić serwer Ollama za pomocą komendy:</p>
+        <pre>ollama serve</pre>
+    </div>
+    {% elif not model_available %}
+    <div class="warning-message">
+        <h2>Model {{ config.MODEL_NAME }} jest niedostępny</h2>
+        <p>Możesz pobrać model za pomocą komendy:</p>
+        <pre>ollama pull {{ config.MODEL_NAME }}</pre>
+        <p>Alternatywnie, wybierz inny dostępny model z listy powyżej.</p>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% block main_attributes %}{% if not ollama_available or not model_available %}class="disabled"{% endif %}{% endblock %}
+
+{% block content %}
+<section class="chat-section">
+    <div class="chat-container" id="chatContainer">
+        <div class="welcome-message">
+            <h2>Witaj w Ollama Server!</h2>
+            <p>Zadaj pytanie, aby rozpocząć konwersację z modelem {{ config.MODEL_NAME }}.</p>
+        </div>
+    </div>
+    
+    <form id="queryForm" class="query-form">
+        <div class="input-group">
+            <textarea 
+                id="promptInput" 
+                name="prompt" 
+                placeholder="Wpisz swoje pytanie..."
+                {% if not ollama_available or not model_available %}disabled{% endif %}
+            ></textarea>
+        </div>
+        <div class="form-controls">
+            <div class="parameters">
+                <label for="temperatureInput">
+                    Temperatura: <span id="temperatureValue">{{ config.TEMPERATURE }}</span>
+                </label>
+                <input 
+                    type="range" 
+                    id="temperatureInput" 
+                    name="temperature" 
+                    min="0" 
+                    max="1" 
+                    step="0.1" 
+                    value="{{ config.TEMPERATURE }}"
+                    {% if not ollama_available or not model_available %}disabled{% endif %}
+                >
+                
+                <label for="maxTokensInput">
+                    Max tokenów: <span id="maxTokensValue">{{ config.MAX_TOKENS }}</span>
+                </label>
+                <input 
+                    type="range" 
+                    id="maxTokensInput" 
+                    name="max_tokens" 
+                    min="100" 
+                    max="4000" 
+                    step="100" 
+                    value="{{ config.MAX_TOKENS }}"
+                    {% if not ollama_available or not model_available %}disabled{% endif %}
+                >
+            </div>
+            <button 
+                type="submit" 
+                class="btn btn-primary"
+                {% if not ollama_available or not model_available %}disabled{% endif %}
+            >
+                Wyślij
+            </button>
+        </div>
+    </form>
+</section>
+{% endblock %}
+
+{% block footer_content %}
+Port: {{ config.SERVER_PORT }}
+{% endblock %}
+
+{% block modals %}
+<div id="modelSwitcher" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Wybierz model</h2>
+        <div id="modelList" class="model-list">
+            <p>Ładowanie dostępnych modeli...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

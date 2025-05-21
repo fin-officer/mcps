@@ -1,0 +1,1 @@
+# Uniwersalny skrypt instalacyjny

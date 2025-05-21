@@ -262,7 +262,7 @@ W środowiskach wirtualnych (virtualenv, venv) instalacja z flagą `--user` moż
 
 Nasz uniwersalny skrypt łączy zalety wszystkich wcześniejszych implementacji:
 
-| Funkcja | Prosty server2.py | Model Context Protocol | Nasz skrypt |
+| Funkcja |  server.py | Model Context Protocol |  skrypt |
 |---------|-------------------|------------------------|-------------|
 | Zależności | Minimalne | Skomplikowane | Automatyczna instalacja |
 | Wsparcie dla systemów | Ograniczone | Zmienne | Wszystkie dystrybucje Linux + macOS |
@@ -552,20 +552,20 @@ pip install mcp requests
 # Proste rozwiązanie dla TinyLLM - bez MCP
 
 
-1. **server2.py** - prosty serwer HTTP z endpointami do komunikacji z TinyLLM
+1. **server.py** - prosty serwer HTTP z endpointami do komunikacji z TinyLLM
 2. **client2.py** - klient do komunikacji z serwerem
-3. **start_super_simple.sh** - skrypt uruchamiający całe rozwiązanie
+3. **setup.sh** - skrypt uruchamiający całe rozwiązanie
 
 ## Jak to uruchomić?
 
 1. Zapisz wszystkie trzy pliki w tym samym katalogu
 2. Nadaj uprawnienia do wykonania skryptom:
    ```bash
-   chmod +x start_super_simple.sh server2.py client.py ask_tinyllm_simple.sh
+   chmod +x setup.sh server.py client.py ask.sh
    ```
 3. Uruchom skrypt startowy:
    ```bash
-   ./server2.sh
+   ./server.sh
    ```
 
 ## Jak korzystać z rozwiązania?

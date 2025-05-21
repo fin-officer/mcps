@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Ollama Server{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <meta name="description" content="Uniwersalny interfejs dla modeli Ollama">
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Ollama Server</h1>
+            <p class="subtitle">Uniwersalny interfejs dla modeli Ollama</p>
+            {% block header_content %}{% endblock %}
+        </header>
+
+        {% block status_bar %}{% endblock %}
+
+        {% block alerts %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        {% endblock %}
+
+        <main {% block main_attributes %}{% endblock %}>
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer>
+            <p>
+                Ollama Server |
+                <a href="https://github.com/username/ollama-server" target="_blank">GitHub</a> |
+                {% block footer_content %}{% endblock %}
+            </p>
+        </footer>
+    </div>
+
+    {% block modals %}{% endblock %}
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

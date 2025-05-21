@@ -1,2 +1,3 @@
-- paczka python
+- pozwalaj na zmiane modelu w trakcie
 - pozwalaj na tetsowanie kilku na raz z rejestrowaniem parametrow do diagnostyki jak czas wykonania, sprzet, itp w celu porownania
+- uruchom od razu, podobnie jak https://github.com/chyok/ollama-gui/tree/main
